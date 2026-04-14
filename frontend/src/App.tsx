@@ -27,6 +27,7 @@ function App() {
       // Fetch insights and history for each
       res.data.forEach((f: any) => {
         fetchInsight(f._id);
+        fetchHistory(f._id);
       });
     } catch (e) {
       console.error('Failed to fetch flights', e);
@@ -44,20 +45,21 @@ function App() {
       }
       const res = await axios.get(`${API_BASE}/ai-insight/${id}${forceRefresh ? '?forceRefresh=true' : ''}`);
       setInsightData(prev => ({ ...prev, [id]: res.data }));
-
-      // We don't have a direct history endpoint in controller yet,
-      // so if we want charts, we might just mock them for presentation
-      // or rely on insight endpoint including history if we modify it.
-      // For now, let's mock history to show the Recharts UI since backend only exposes insights
-      setHistoryData(prev => ({
-        ...prev,
-        [id]: Array.from({length: 5}).map((_, i) => ({
-          name: `Day ${i+1}`,
-          price: Math.floor(Math.random() * (500 - 100 + 1)) + 100
-        }))
-      }));
     } catch (e) {
       console.error('Failed to fetch insight', e);
+    }
+  };
+
+  const fetchHistory = async (id: string) => {
+    try {
+      const res = await axios.get(`${API_BASE}/flights/${id}/history`);
+      const formattedData = res.data.map((h: any) => ({
+        name: new Date(h.fetchedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        price: h.price
+      }));
+      setHistoryData(prev => ({ ...prev, [id]: formattedData }));
+    } catch (e) {
+      console.error('Failed to fetch history', e);
     }
   };
 
@@ -146,68 +148,83 @@ function App() {
             }
 
             return filteredFlights.map((flight, idx) => (
-              <div key={flight._id} className="glass-panel animate-fade-in" style={{ animationDelay: idx * 0.1 + 's', padding: '25px', display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
-
-              <div style={{ flex: '1', minWidth: '250px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <div key={flight._id} className="glass-panel animate-fade-in" style={{ animationDelay: idx * 0.1 + 's', padding: '25px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* Card Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '15px' }}>
                   <h3 style={{ fontSize: '1.5rem' }}>{flight.origin} → {flight.destination}</h3>
                   <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Departs: {flight.departureDate}</span>
                 </div>
 
-                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', marginTop: '20px' }}>
-                  <h4 style={{ marginBottom: '10px', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <TrendingDown size={18} /> AI Insight
+                {/* Content Grid */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'stretch' }}>
+                  
+                  {/* AI Insight Section */}
+                  <div style={{ flex: '1', minWidth: '300px', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <h4 style={{ marginBottom: '10px', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <TrendingDown size={18} /> AI Insight
+                        </div>
+                        <button
+                          onClick={() => fetchInsight(flight._id, true)}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '5px', borderRadius: '50%', display: 'flex', alignItems: 'center', transition: 'color 0.2s', ...(!insightData[flight._id] ? { opacity: 0.5, pointerEvents: 'none' } : {}) }}
+                          title="Force Refresh Insight"
+                          onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent)'}
+                          onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                        >
+                          <RefreshCw size={16} className={!insightData[flight._id] ? "spin" : ""} />
+                        </button>
+                      </h4>
+                      {insightData[flight._id] ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                          <div style={{
+                            display: 'inline-block',
+                            padding: '5px 12px',
+                            borderRadius: '20px',
+                            fontWeight: 'bold',
+                            fontSize: '0.9rem',
+                            marginBottom: '10px',
+                            alignSelf: 'start',
+                            background: insightData[flight._id].recommendation === 'Buy Now' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                            color: insightData[flight._id].recommendation === 'Buy Now' ? 'var(--success)' : 'var(--warning)'
+                          }}>
+                            {insightData[flight._id].recommendation}
+                          </div>
+                          <p style={{ fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '8px', flex: 1 }}>{insightData[flight._id].explanation}</p>
+                          {insightData[flight._id].generatedAt && (
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 'auto' }}>
+                              <Clock size={12} style={{ display: 'inline', marginRight: '4px', position: 'relative', top: '-1px' }}/>
+                              Last updated: {new Date(insightData[flight._id].generatedAt).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      ) : <div style={{ color: 'var(--text-secondary)' }}><Clock size={16} style={{ display: 'inline', marginRight: '5px' }}/> Analyzing...</div>}
                     </div>
-                    <button
-                      onClick={() => fetchInsight(flight._id, true)}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '5px', borderRadius: '50%', display: 'flex', alignItems: 'center', transition: 'color 0.2s', ...(!insightData[flight._id] ? { opacity: 0.5, pointerEvents: 'none' } : {}) }}
-                      title="Force Refresh Insight"
-                      onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent)'}
-                      onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-                    >
-                      <RefreshCw size={16} className={!insightData[flight._id] ? "spin" : ""} />
-                    </button>
-                  </h4>
-                  {insightData[flight._id] ? (
-                    <div>
-                      <div style={{
-                        display: 'inline-block',
-                        padding: '5px 12px',
-                        borderRadius: '20px',
-                        fontWeight: 'bold',
-                        fontSize: '0.9rem',
-                        marginBottom: '10px',
-                        background: insightData[flight._id].recommendation === 'Buy Now' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
-                        color: insightData[flight._id].recommendation === 'Buy Now' ? 'var(--success)' : 'var(--warning)'
-                      }}>
-                        {insightData[flight._id].recommendation}
+                  </div>
+
+                  {/* Mini Chart Section */}
+                  <div style={{ flex: '1', minWidth: '300px', minHeight: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.1)', borderRadius: '12px', padding: '10px' }}>
+                    {(historyData[flight._id] && historyData[flight._id].length > 0) ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={historyData[flight._id]}>
+                          <Tooltip
+                            contentStyle={{ background: 'var(--bg-dark)', border: '1px solid var(--glass-border)', borderRadius: '8px' }}
+                            itemStyle={{ color: 'var(--accent)' }}
+                          />
+                          <Line type="monotone" dataKey="price" stroke="var(--accent)" strokeWidth={3} dot={{ fill: 'var(--accent)', r: 4 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div style={{ color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem' }}>
+                        <TrendingDown size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                        <br />
+                        No price history yet.<br />Tracking data soon.
                       </div>
-                      <p style={{ fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '8px' }}>{insightData[flight._id].explanation}</p>
-                      {insightData[flight._id].generatedAt && (
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                          <Clock size={12} style={{ display: 'inline', marginRight: '4px', position: 'relative', top: '-1px' }}/>
-                          Last updated: {new Date(insightData[flight._id].generatedAt).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                  ) : <div style={{ color: 'var(--text-secondary)' }}><Clock size={16} style={{ display: 'inline', marginRight: '5px' }}/> Analyzing...</div>}
+                    )}
+                  </div>
+
                 </div>
-              </div>
-
-              {/* Mini Chart */}
-              <div style={{ flex: '1', minWidth: '250px', height: '180px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={historyData[flight._id] || []}>
-                    <Tooltip
-                      contentStyle={{ background: 'var(--bg-dark)', border: '1px solid var(--glass-border)', borderRadius: '8px' }}
-                      itemStyle={{ color: 'var(--accent)' }}
-                    />
-                    <Line type="monotone" dataKey="price" stroke="var(--accent)" strokeWidth={3} dot={{ fill: 'var(--accent)', r: 4 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
               </div>
             ));
           })()}

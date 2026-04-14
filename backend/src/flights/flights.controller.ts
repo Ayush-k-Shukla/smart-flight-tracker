@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { FlightsService } from './flights.service';
 import { CreateFlightDto } from './dto/create-flight.dto';
 
@@ -14,5 +14,10 @@ export class FlightsController {
   @Get()
   async findAll() {
     return this.flightsService.findAllActive();
+  }
+
+  @Get(':id/history')
+  async getHistory(@Param('id') id: string) {
+    return this.flightsService.getPriceHistory(id);
   }
 }
