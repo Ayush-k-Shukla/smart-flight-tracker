@@ -1,6 +1,7 @@
-import { Controller, Get, Param, HttpException, HttpStatus } from '@nestjs/common';
-import { AiInsightService } from './ai-insight.service';
+import { Controller, Get, HttpException, HttpStatus, Param, Query } from '@nestjs/common';
+import { Types } from 'mongoose';
 import { FlightsService } from '../../flights/flights.service';
+import { AiInsightService } from './ai-insight.service';
 
 @Controller('ai-insight')
 export class AiInsightController {
@@ -10,7 +11,10 @@ export class AiInsightController {
   ) {}
 
   @Get(':flightId')
-  async getInsight(@Param('flightId') flightId: string) {
+  async getInsight(
+    @Param('flightId') flightId: string,
+    @Query('forceRefresh') forceRefresh?: string
+  ) {
     const flight = await this.flightsService.getFlight(flightId);
     if (!flight) {
       throw new HttpException('Flight not found', HttpStatus.NOT_FOUND);
@@ -24,6 +28,36 @@ export class AiInsightController {
       };
     }
 
-    return await this.aiInsightService.getRecommendation(flight, priceHistory);
+    const isForceRefresh = forceRefresh === 'true';
+
+    // 1. Return cached insight if available and not forced to refresh
+    if (!isForceRefresh && flight.lastInsightGeneratedAt && flight.aiRecommendation) {
+      return {
+        recommendation: flight.aiRecommendation,
+        explanation: flight.aiExplanation,
+        generatedAt: flight.lastInsightGeneratedAt
+      };
+    }
+
+    // 2. Generate new insight
+    const newInsight = await this.aiInsightService.getRecommendation(flight, priceHistory);
+
+    // 3. Save to database if successful
+    if (newInsight.recommendation !== 'Error') {
+      flight.aiRecommendation = newInsight.recommendation;
+      flight.aiExplanation = newInsight.explanation;
+      flight.lastInsightGeneratedAt = new Date();
+
+      await this.flightsService.updateFlight(new Types.ObjectId(flight._id), {
+        aiRecommendation: flight.aiRecommendation,
+        aiExplanation: flight.aiExplanation,
+        lastInsightGeneratedAt: flight.lastInsightGeneratedAt
+      });
+    }
+
+    return {
+      ...newInsight,
+      generatedAt: flight.lastInsightGeneratedAt || new Date()
+    };
   }
 }

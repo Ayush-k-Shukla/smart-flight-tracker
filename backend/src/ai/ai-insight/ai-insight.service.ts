@@ -12,20 +12,28 @@ export class AiInsightService {
     if (apiKey && apiKey !== 'your_gemini_api_key_here') {
       this.genAI = new GoogleGenerativeAI(apiKey);
     } else {
-      this.logger.warn('No valid GEMINI_API_KEY found. AI Insights will return mock data.');
+      this.logger.warn(
+        'No valid GEMINI_API_KEY found. AI Insights will return mock data.',
+      );
     }
   }
 
-  async getRecommendation(flightDetails: any, priceHistory: any[]): Promise<any> {
+  async getRecommendation(
+    flightDetails: any,
+    priceHistory: any[],
+  ): Promise<any> {
     if (!this.genAI) {
       return {
         recommendation: 'Wait',
-        explanation: 'Mock mode: We lack historical data to suggest buying right now. Please supply a Gemini API Key for real recommendations.',
+        explanation:
+          'Mock mode: We lack historical data to suggest buying right now. Please supply a Gemini API Key for real recommendations.',
       };
     }
 
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+      const model = this.genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash-lite',
+      });
 
       const prompt = `
         You are an expert flight tracking AI. Given the following flight details and price history,
@@ -35,7 +43,7 @@ export class AiInsightService {
         Departure Date: ${flightDetails.departureDate}
 
         Price History (Chronological):
-        ${priceHistory.map(p => `- ${p.fetchedAt}: $${p.price}`).join('\n')}
+        ${priceHistory.map((p) => `- ${p.fetchedAt}: $${p.price}`).join('\n')}
 
         Return JSON strictly in this format:
         {
@@ -48,14 +56,18 @@ export class AiInsightService {
       const responseText = result.response.text();
 
       // Clean possible Markdown JSON formatting
-      const cleanJsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const cleanJsonStr = responseText
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
 
       return JSON.parse(cleanJsonStr);
     } catch (e) {
       this.logger.error('Error fetching Gemini AI recommendation:', e);
       return {
         recommendation: 'Error',
-        explanation: 'Could not fetch recommendation at this time due to an API error.',
+        explanation:
+          'Could not fetch recommendation at this time due to an API error.',
       };
     }
   }

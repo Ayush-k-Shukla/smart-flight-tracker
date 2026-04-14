@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plane, Search, TrendingDown, Clock, CheckCircle } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Clock, Plane, RefreshCw, Search, TrendingDown } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Line, LineChart, ResponsiveContainer, Tooltip } from 'recharts';
 import './index.css';
 
 const API_BASE = 'http://localhost:3000';
@@ -14,6 +14,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [insightData, setInsightData] = useState<Record<string, any>>({});
   const [historyData, setHistoryData] = useState<Record<string, any[]>>({});
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
   useEffect(() => {
     fetchFlights();
@@ -32,11 +33,18 @@ function App() {
     }
   };
 
-  const fetchInsight = async (id: string) => {
+  const fetchInsight = async (id: string, forceRefresh = false) => {
     try {
-      const res = await axios.get(`${API_BASE}/ai-insight/${id}`);
+      if (forceRefresh) {
+        setInsightData(prev => {
+          const newData = { ...prev };
+          delete newData[id]; // Trigger loading state
+          return newData;
+        });
+      }
+      const res = await axios.get(`${API_BASE}/ai-insight/${id}${forceRefresh ? '?forceRefresh=true' : ''}`);
       setInsightData(prev => ({ ...prev, [id]: res.data }));
-      
+
       // We don't have a direct history endpoint in controller yet,
       // so if we want charts, we might just mock them for presentation
       // or rely on insight endpoint including history if we modify it.
@@ -78,7 +86,7 @@ function App() {
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '30px' }}>
-        
+
         {/* Tracker Form */}
         <div className="glass-panel animate-fade-in" style={{ padding: '30px', height: 'fit-content' }}>
           <h2 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -96,15 +104,50 @@ function App() {
 
         {/* Tracked Flights Dashboard */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {flights.length === 0 && (
-            <div className="glass-panel animate-fade-in" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              No flights tracked yet. Add one to begin!
-            </div>
-          )}
 
-          {flights.map((flight, idx) => (
-            <div key={flight._id} className="glass-panel animate-fade-in" style={{ animationDelay: idx * 0.1 + 's', padding: '25px', display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
-              
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }} className="animate-fade-in">
+            <button
+              onClick={() => setActiveTab('upcoming')}
+              className="btn"
+              style={{
+                flex: 1,
+                background: activeTab === 'upcoming' ? 'var(--accent)' : 'var(--glass-bg)',
+                border: activeTab === 'upcoming' ? '1px solid var(--accent)' : '1px solid var(--glass-border)',
+                color: activeTab === 'upcoming' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              New Tracking
+            </button>
+            <button
+              onClick={() => setActiveTab('past')}
+              className="btn"
+              style={{
+                flex: 1,
+                background: activeTab === 'past' ? 'var(--accent)' : 'var(--glass-bg)',
+                border: activeTab === 'past' ? '1px solid var(--accent)' : '1px solid var(--glass-border)',
+                color: activeTab === 'past' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              Past Tracking
+            </button>
+          </div>
+
+          {(() => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const filteredFlights = flights.filter(f => activeTab === 'upcoming' ? f.departureDate >= todayStr : f.departureDate < todayStr);
+
+            if (filteredFlights.length === 0) {
+              return (
+                <div className="glass-panel animate-fade-in" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  No {activeTab} flights tracked yet. Add one to begin!
+                </div>
+              );
+            }
+
+            return filteredFlights.map((flight, idx) => (
+              <div key={flight._id} className="glass-panel animate-fade-in" style={{ animationDelay: idx * 0.1 + 's', padding: '25px', display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+
               <div style={{ flex: '1', minWidth: '250px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                   <h3 style={{ fontSize: '1.5rem' }}>{flight.origin} → {flight.destination}</h3>
@@ -112,16 +155,27 @@ function App() {
                 </div>
 
                 <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', marginTop: '20px' }}>
-                  <h4 style={{ marginBottom: '10px', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <TrendingDown size={18} /> AI Insight
+                  <h4 style={{ marginBottom: '10px', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <TrendingDown size={18} /> AI Insight
+                    </div>
+                    <button
+                      onClick={() => fetchInsight(flight._id, true)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '5px', borderRadius: '50%', display: 'flex', alignItems: 'center', transition: 'color 0.2s', ...(!insightData[flight._id] ? { opacity: 0.5, pointerEvents: 'none' } : {}) }}
+                      title="Force Refresh Insight"
+                      onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent)'}
+                      onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                    >
+                      <RefreshCw size={16} className={!insightData[flight._id] ? "spin" : ""} />
+                    </button>
                   </h4>
                   {insightData[flight._id] ? (
                     <div>
-                      <div style={{ 
-                        display: 'inline-block', 
-                        padding: '5px 12px', 
-                        borderRadius: '20px', 
-                        fontWeight: 'bold', 
+                      <div style={{
+                        display: 'inline-block',
+                        padding: '5px 12px',
+                        borderRadius: '20px',
+                        fontWeight: 'bold',
                         fontSize: '0.9rem',
                         marginBottom: '10px',
                         background: insightData[flight._id].recommendation === 'Buy Now' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
@@ -129,7 +183,13 @@ function App() {
                       }}>
                         {insightData[flight._id].recommendation}
                       </div>
-                      <p style={{ fontSize: '0.95rem', lineHeight: '1.5' }}>{insightData[flight._id].explanation}</p>
+                      <p style={{ fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '8px' }}>{insightData[flight._id].explanation}</p>
+                      {insightData[flight._id].generatedAt && (
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          <Clock size={12} style={{ display: 'inline', marginRight: '4px', position: 'relative', top: '-1px' }}/>
+                          Last updated: {new Date(insightData[flight._id].generatedAt).toLocaleString()}
+                        </p>
+                      )}
                     </div>
                   ) : <div style={{ color: 'var(--text-secondary)' }}><Clock size={16} style={{ display: 'inline', marginRight: '5px' }}/> Analyzing...</div>}
                 </div>
@@ -139,7 +199,7 @@ function App() {
               <div style={{ flex: '1', minWidth: '250px', height: '180px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={historyData[flight._id] || []}>
-                    <Tooltip 
+                    <Tooltip
                       contentStyle={{ background: 'var(--bg-dark)', border: '1px solid var(--glass-border)', borderRadius: '8px' }}
                       itemStyle={{ color: 'var(--accent)' }}
                     />
@@ -148,10 +208,11 @@ function App() {
                 </ResponsiveContainer>
               </div>
 
-            </div>
-          ))}
+              </div>
+            ));
+          })()}
         </div>
-        
+
       </div>
     </div>
   );

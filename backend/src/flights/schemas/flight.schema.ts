@@ -16,6 +16,15 @@ export class Flight {
 
   @Prop({ default: true })
   isActive: boolean; // Whether the system is still tracking this flight
+
+  @Prop()
+  aiRecommendation?: string;
+
+  @Prop()
+  aiExplanation?: string;
+
+  @Prop()
+  lastInsightGeneratedAt?: Date;
 }
 
 export const FlightSchema = SchemaFactory.createForClass(Flight);

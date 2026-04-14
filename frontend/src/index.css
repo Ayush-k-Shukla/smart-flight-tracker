@@ -86,3 +86,15 @@ input:focus {
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.hover-bg-glass:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}

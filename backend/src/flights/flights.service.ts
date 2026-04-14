@@ -25,6 +25,10 @@ export class FlightsService {
     return this.flightModel.findById(flightId).exec();
   }
 
+  async updateFlight(flightId: string | Types.ObjectId, updateData: Partial<Flight>): Promise<FlightDocument | null> {
+    return this.flightModel.findByIdAndUpdate(flightId, updateData, { new: true }).exec();
+  }
+
   async getPriceHistory(flightId: string): Promise<PriceHistory[]> {
     return this.priceHistoryModel.find({flightId: new Types.ObjectId(flightId)}).sort({ fetchedAt: 1 }).exec();
   }
