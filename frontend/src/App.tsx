@@ -15,10 +15,43 @@ function App() {
   const [insightData, setInsightData] = useState<Record<string, any>>({});
   const [historyData, setHistoryData] = useState<Record<string, any[]>>({});
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [originSearch, setOriginSearch] = useState('');
+  const [destSearch, setDestSearch] = useState('');
+  const [originSuggestions, setOriginSuggestions] = useState<any[]>([]);
+  const [destSuggestions, setDestSuggestions] = useState<any[]>([]);
+  const [showOriginList, setShowOriginList] = useState(false);
+  const [showDestList, setShowDestList] = useState(false);
 
   useEffect(() => {
     fetchFlights();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (originSearch && !origin) {
+        fetchSuggestions(originSearch, setOriginSuggestions);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [originSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (destSearch && !destination) {
+        fetchSuggestions(destSearch, setDestSuggestions);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [destSearch]);
+
+  const fetchSuggestions = async (q: string, setter: (val: any[]) => void) => {
+    try {
+      const res = await axios.get(`${API_BASE}/flights/search-locations?q=${q}`);
+      setter(res.data);
+    } catch (e) {
+      console.error('Failed to fetch suggestions', e);
+    }
+  };
 
   const fetchFlights = async () => {
     try {
@@ -71,12 +104,24 @@ function App() {
       await axios.post(`${API_BASE}/flights`, { origin, destination, departureDate: date });
       setOrigin(''); setDestination(''); setDate('');
       await fetchFlights();
+      setOriginSearch(''); setDestSearch('');
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.autocomplete-container')) {
+        setShowOriginList(false);
+        setShowDestList(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -95,10 +140,100 @@ function App() {
             <Plane size={24} color="var(--accent)" /> Track Route
           </h2>
           <form style={{ display: 'flex', flexDirection: 'column', gap: '15px' }} onSubmit={addFlight}>
-            <input type="text" placeholder="Origin (e.g. JFK)" value={origin} onChange={e => setOrigin(e.target.value.toUpperCase())} maxLength={3} required />
-            <input type="text" placeholder="Destination (e.g. LHR)" value={destination} onChange={e => setDestination(e.target.value.toUpperCase())} maxLength={3} required />
+            <div className="autocomplete-container" style={{ position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="Origin City or Code"
+                value={originSearch}
+                onChange={e => {
+                  setOriginSearch(e.target.value);
+                  setOrigin(''); // Clear selection if user types
+                  setShowOriginList(true);
+                }}
+                onFocus={() => setShowOriginList(true)}
+                required
+              />
+              {showOriginList && (originSearch || originSuggestions.length > 0) && (
+                <div className="glass-panel" style={{ 
+                  position: 'absolute', 
+                  top: '100%', 
+                  left: 0, 
+                  right: 0, 
+                  zIndex: 100, 
+                  marginTop: '5px', 
+                  maxHeight: '200px', 
+                  overflowY: 'auto', 
+                  padding: '10px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)', // Solid dark background for readability
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)'
+                }}>
+                  {originSuggestions.length > 0 ? originSuggestions.map(s => (
+                    <div
+                      key={s.iata}
+                      className="suggestion-item"
+                      style={{ padding: '8px', cursor: 'pointer', borderRadius: '4px', borderBottom: '1px solid var(--glass-border)' }}
+                      onClick={() => {
+                        setOrigin(s.iata);
+                        setOriginSearch(`${s.city} (${s.iata})`);
+                        setShowOriginList(false);
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold' }}>{s.city} ({s.iata})</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{s.name}</div>
+                    </div>
+                  )) : <div style={{ padding: '8px', color: 'var(--text-secondary)' }}>Searching...</div>}
+                </div>
+              )}
+            </div>
+
+            <div className="autocomplete-container" style={{ position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="Destination City or Code"
+                value={destSearch}
+                onChange={e => {
+                  setDestSearch(e.target.value);
+                  setDestination('');
+                  setShowDestList(true);
+                }}
+                onFocus={() => setShowDestList(true)}
+                required
+              />
+              {showDestList && (destSearch || destSuggestions.length > 0) && (
+                <div className="glass-panel" style={{ 
+                  position: 'absolute', 
+                  top: '100%', 
+                  left: 0, 
+                  right: 0, 
+                  zIndex: 100, 
+                  marginTop: '5px', 
+                  maxHeight: '200px', 
+                  overflowY: 'auto', 
+                  padding: '10px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)', // Solid dark background for readability
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)'
+                }}>
+                  {destSuggestions.length > 0 ? destSuggestions.map(s => (
+                    <div
+                      key={s.iata}
+                      className="suggestion-item"
+                      style={{ padding: '8px', cursor: 'pointer', borderRadius: '4px', borderBottom: '1px solid var(--glass-border)' }}
+                      onClick={() => {
+                        setDestination(s.iata);
+                        setDestSearch(`${s.city} (${s.iata})`);
+                        setShowDestList(false);
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold' }}>{s.city} ({s.iata})</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{s.name}</div>
+                    </div>
+                  )) : <div style={{ padding: '8px', color: 'var(--text-secondary)' }}>Searching...</div>}
+                </div>
+              )}
+            </div>
+
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
-            <button type="submit" className="btn" disabled={loading} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+            <button type="submit" className="btn" disabled={loading || !origin || !destination} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
               {loading ? 'Adding...' : <><Search size={18} /> Start Tracking</>}
             </button>
           </form>

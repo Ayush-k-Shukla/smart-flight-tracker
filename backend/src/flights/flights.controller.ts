@@ -1,12 +1,23 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { AirportLookupService } from './airport-lookup.service';
 import { CreateFlightDto } from './dto/create-flight.dto';
 import { FlightsService } from './flights.service';
 
 @ApiTags('flights')
 @Controller('flights')
 export class FlightsController {
-  constructor(private readonly flightsService: FlightsService) {}
+  constructor(
+    private readonly flightsService: FlightsService,
+    private readonly airportLookupService: AirportLookupService
+  ) {}
+
+  @Get('search-locations')
+  @ApiOperation({ summary: 'Search for airports/cities locally' })
+  @ApiResponse({ status: 200, description: 'Return matching airports' })
+  async searchLocations(@Query('q') query: string) {
+    return this.airportLookupService.search(query);
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a new flight to track' })
