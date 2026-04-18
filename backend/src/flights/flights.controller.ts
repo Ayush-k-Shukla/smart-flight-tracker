@@ -33,6 +33,14 @@ export class FlightsController {
     return this.flightsService.findAllActive();
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a specific flight by ID' })
+  @ApiResponse({ status: 200, description: 'Return the flight.' })
+  @ApiResponse({ status: 404, description: 'Flight not found.' })
+  async getOne(@Param('id') id: string) {
+    return this.flightsService.getFlight(id);
+  }
+
   @Get(':id/history')
   @ApiOperation({ summary: 'Get price history for a specific flight' })
   @ApiResponse({ status: 200, description: 'Return price history.' })

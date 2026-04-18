@@ -8,8 +8,14 @@ export class Flight {
   @Prop({ required: true })
   origin: string; // IATA code, e.g., JFK
 
+  @Prop()
+  originCity?: string; // Human-readable city name, e.g., New York
+
   @Prop({ required: true })
   destination: string; // IATA code, e.g., LHR
+
+  @Prop()
+  destinationCity?: string; // Human-readable city name, e.g., London
 
   @Prop({ required: true })
   departureDate: string; // YYYY-MM-DD format

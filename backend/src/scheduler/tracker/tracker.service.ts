@@ -27,14 +27,14 @@ export class TrackerService {
 
       for (const flight of activeFlights) {
         try {
-          const price = await this.flightDataService.getCurrentPrice(
+          const flightData = await this.flightDataService.getCurrentPrice(
             flight.origin,
             flight.destination,
             flight.departureDate,
           );
 
-          await this.flightsService.addPriceHistory(flight._id, price);
-          this.logger.log(`Successfully updated tracking for ${flight.origin}->${flight.destination}: $${price}`);
+          await this.flightsService.addPriceHistory(flight._id, flightData);
+          this.logger.log(`Successfully updated tracking for ${flight.origin}->${flight.destination}: ₹${flightData.price}`);
         } catch (error) {
           this.logger.error(`Failed to update flight ${flight._id}:`, error);
         }

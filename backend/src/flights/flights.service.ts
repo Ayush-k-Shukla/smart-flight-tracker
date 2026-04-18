@@ -33,10 +33,14 @@ export class FlightsService {
     return this.priceHistoryModel.find({flightId: new Types.ObjectId(flightId)}).sort({ fetchedAt: 1 }).exec();
   }
 
-  async addPriceHistory(flightId: string | Types.ObjectId, price: number): Promise<PriceHistory> {
+  async addPriceHistory(
+    flightId: string | Types.ObjectId, 
+    data: number | { price: number; airline?: string; flightNumber?: string; departureTime?: string; arrivalTime?: string; duration?: number }
+  ): Promise<PriceHistory> {
+    const historyData = typeof data === 'number' ? { price: data } : data;
     const history = new this.priceHistoryModel({
       flightId,
-      price,
+      ...historyData,
       fetchedAt: new Date(),
     });
     return history.save();

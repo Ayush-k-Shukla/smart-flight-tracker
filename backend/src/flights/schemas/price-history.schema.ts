@@ -15,6 +15,21 @@ export class PriceHistory {
   @Prop({ required: true, default: 'INR' })
   currency: string;
 
+  @Prop()
+  airline?: string;
+
+  @Prop()
+  flightNumber?: string;
+
+  @Prop()
+  departureTime?: string;
+
+  @Prop()
+  arrivalTime?: string;
+
+  @Prop()
+  duration?: number; // duration in minutes
+
   @Prop({ required: true })
   fetchedAt: Date;
 }
