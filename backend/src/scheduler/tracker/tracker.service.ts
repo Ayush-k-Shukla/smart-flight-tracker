@@ -30,6 +30,18 @@ export class TrackerService {
       );
 
       for (const flight of activeFlights) {
+        // Check if the flight departure date is in the past
+        const departureDate = new Date(flight.departureDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (departureDate < today) {
+          this.logger.debug(
+            `Skipping past tracking for ${flight.origin}->${flight.destination} (departure: ${flight.departureDate})`,
+          );
+          continue;
+        }
+
         try {
           const flightData = await this.flightDataService.getCurrentPrice(
             flight.origin,
