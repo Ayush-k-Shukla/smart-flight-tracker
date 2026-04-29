@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 
 export type FlightDocument = Flight & Document;
 
@@ -19,6 +19,9 @@ export class Flight {
 
   @Prop({ required: true })
   departureDate: string; // YYYY-MM-DD format
+
+  @Prop()
+  returnDate?: string; // YYYY-MM-DD format for return leg
 
   @Prop({ default: true })
   isActive: boolean; // Whether the system is still tracking this flight
